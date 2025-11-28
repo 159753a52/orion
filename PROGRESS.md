@@ -68,7 +68,7 @@ make -j1 scheduler_eval.so
 
 ## 3. 运行GPT拦截调度样例
 
-### 3.1 完整运行命令
+### 3.1 完整运行命令（当前可成功运行）
 ```bash
 source /lihongliang/fangzl/envs/use-cuda-12.4.sh
 cd /lihongliang/fangzl/orion-work/orion_gpt/gpt-example
@@ -84,22 +84,31 @@ LD_PRELOAD='/lihongliang/fangzl/orion-work/orion_gpt/src/cuda_capture/libinttemp
     ./venv/bin/python launch_gpt.py --config gpt_config.json
 ```
 
-### 3.2 预期输出
+### 3.2 一键运行脚本
+```bash
+source /lihongliang/fangzl/envs/use-cuda-12.4.sh && \
+cd /lihongliang/fangzl/orion-work/orion_gpt/gpt-example && \
+export LD_LIBRARY_PATH="/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/venv/lib/python3.8/site-packages/nvidia/cudnn/lib:/lihongliang/fangzl/cuda-12.4.1/lib64:$LD_LIBRARY_PATH" && \
+export ORION_LIB_PATH="/lihongliang/fangzl/orion-work/orion_gpt/src/cuda_capture/libinttemp.so" && \
+LD_PRELOAD='/lihongliang/fangzl/orion-work/orion_gpt/src/cuda_capture/libinttemp.so' ./venv/bin/python launch_gpt.py --config gpt_config.json
+```
+
+### 3.3 预期输出
 ```
 ==================================================
 GPT Orion Scheduler Launch
 ==================================================
 Number of clients: 1
 Loading scheduler from: /lihongliang/fangzl/orion-work/orion_gpt/src/scheduler/scheduler_eval.so
-[GPT Client 0] Starting, batchsize=4, num_iters=10
+[GPT Client 0] Starting, batchsize=4, num_iters=5
 ...
 Loading interception library from: /lihongliang/fangzl/orion-work/orion_gpt/src/cuda_capture/libinttemp.so
-KERNEL_INFO_FILE IS /lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info.csv
------------ SIZE: 2034
+KERNEL_INFO_FILE IS /lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info_v4.csv
+----------- SIZE: 1806
 ...
-[GPT Client 0] Iteration 0 done, took 243.55 ms
-[GPT Client 0] Received stop signal
-Total loop took 0.243000 sec
+[GPT Client 0] Iteration 0 done, took 260.82 ms
+[GPT Client 0] Passed final barrier
+[GPT Client 0] Completed 1 iterations in 1.26 sec
 ...
 ==================================================
 All threads completed!
@@ -108,21 +117,24 @@ All threads completed!
 
 ## 4. 配置文件说明
 
-### gpt_config.json
+### gpt_config.json（当前配置）
 ```json
-{
-    "clients": [{
+[
+    {
         "arch": "gpt",
-        "kernel_file": "/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info.csv",
-        "num_kernels": 2034,
-        "num_iters": 10,
+        "kernel_file": "/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info_v4.csv",
+        "num_kernels": 1806,
+        "num_iters": 5,
         "args": {
             "model_name": "gpt",
             "batchsize": 4,
-            "sequence_len": 512
+            "rps": 0,
+            "uniform": true,
+            "dummy_data": true,
+            "train": false
         }
-    }]
-}
+    }
+]
 ```
 
 ## 5. 代码修改说明
