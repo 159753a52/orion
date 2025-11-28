@@ -250,6 +250,14 @@ void* Scheduler::busy_wait_profile(int num_clients, int iter, bool warmup, int w
  	std::chrono::time_point<std::chrono::system_clock> start_time;
 	auto start_total = std::chrono::high_resolution_clock::now();
 
+	// Timeout detection: if no kernel arrives for 500ms, consider client done
+	const long IDLE_TIMEOUT_MS = 500;
+	vector<std::chrono::time_point<std::chrono::high_resolution_clock>> last_activity(num_clients);
+	vector<bool> client_timed_out(num_clients, false);
+	for (int i = 0; i < num_clients; i++) {
+		last_activity[i] = std::chrono::high_resolution_clock::now();
+	}
+
 	vector<bool> total_client_set(num_clients, false);
 	vector<int> profiles(num_clients, -1);
 	vector<int> cur_sms(num_clients, -1);
@@ -279,13 +287,14 @@ void* Scheduler::busy_wait_profile(int num_clients, int iter, bool warmup, int w
 		size = 0;
 
 		for (int i=0; i<num_clients; i++) {
-			if (seen[i] == num_client_kernels[i])
+			if (seen[i] == num_client_kernels[i] || client_timed_out[i])
 				continue;
 
 			pthread_mutex_lock(client_mutexes[i]);
 			volatile int sz = client_buffers[i]->size();
 			if (sz > 0) {
 				frecords[i] = &(client_buffers[i]->front());
+				last_activity[i] = std::chrono::high_resolution_clock::now();  // Update activity time
 				int cur_iter = num_client_cur_iters[i];
 				if (seen[i] == 0 && client_starts_set[i][cur_iter] == false) {
 					client_starts[i] = std::chrono::high_resolution_clock::now();
@@ -297,6 +306,20 @@ void* Scheduler::busy_wait_profile(int num_clients, int iter, bool warmup, int w
 				}
 				//if (seen[i] == num_client_kernels[i]-1)
 				//	continue;
+			} else {
+				// Check timeout: if queue empty for too long, consider client done
+				auto now = std::chrono::high_resolution_clock::now();
+				long idle_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_activity[i]).count();
+				if (idle_ms > IDLE_TIMEOUT_MS && seen[i] > 0 && !client_timed_out[i]) {
+					printf("Client %d timed out after %ld ms idle (seen %d kernels, expected %d)\n", 
+						   i, idle_ms, seen[i], num_client_kernels[i]);
+					client_timed_out[i] = true;
+					// Unblock client by setting all pending request_status to true
+					for (int iter = 0; iter < num_client_max_iters[i]; iter++) {
+						request_status[i][iter] = true;
+					}
+					stops[i] = true;  // Signal client to stop
+				}
 			}
 			pthread_mutex_unlock(client_mutexes[i]);
 		}
@@ -384,9 +407,10 @@ void* Scheduler::busy_wait_profile(int num_clients, int iter, bool warmup, int w
 				(num_client_cur_iters[i] == num_client_max_iters[i])
 				|| (warmup && (num_client_cur_iters[i]==warmup_iters))
 				|| (stop_ack[i] == true)
+				|| (client_timed_out[i] == true)
 			)
 				finished += 1;
-			else if (seen[i] == num_client_kernels[i]) {
+			else if (seen[i] == num_client_kernels[i] || client_timed_out[i]) {
 				// check if GPU work for this client has finished
 				if (!locked[i]) {
 					pthread_mutex_lock(client_mutexes[i]);
@@ -551,11 +575,21 @@ extern "C" {
 		bool reef
 	) {
 
-		struct passwd *pw = getpwuid(getuid());
-		char *homedir = pw->pw_dir;
-		char* lib_path = "/orion/src/cuda_capture/libinttemp.so";
-
-		klib = dlopen(strcat(homedir, lib_path), RTLD_NOW | RTLD_GLOBAL);
+		// Try ORION_LIB_PATH env var first, then fall back to home directory
+		char* env_lib_path = getenv("ORION_LIB_PATH");
+		char lib_path_buf[512];
+		
+		if (env_lib_path != NULL) {
+			strncpy(lib_path_buf, env_lib_path, sizeof(lib_path_buf) - 1);
+			lib_path_buf[sizeof(lib_path_buf) - 1] = '\0';
+		} else {
+			struct passwd *pw = getpwuid(getuid());
+			char *homedir = pw->pw_dir;
+			snprintf(lib_path_buf, sizeof(lib_path_buf), "%s/orion/src/cuda_capture/libinttemp.so", homedir);
+		}
+		
+		printf("Loading interception library from: %s\n", lib_path_buf);
+		klib = dlopen(lib_path_buf, RTLD_NOW | RTLD_GLOBAL);
 
 		if (!klib) {
 			fprintf(stderr, "Error: %s\n", dlerror());

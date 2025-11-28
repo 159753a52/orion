@@ -1,9 +1,10 @@
 CC=g++
-CUDAINCLUDE=/usr/local/cuda-10.2/include/
-CUDALIB=/usr/local/cuda-10.2/lib64
+CUDAINCLUDE=/lihongliang/fangzl/cuda-12.4.1/include/
+CUDALIB=/lihongliang/fangzl/cuda-12.4.1/lib64
+CUDNNLIB=/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/venv/lib/python3.8/site-packages/nvidia/cudnn/lib
 
 libinttemp.so: utils_interc.cpp intercept_cudnn.cpp intercept_cublas.cpp intercept_temp.cpp
-	$(CC) -O3 -fPIC -shared utils_interc.cpp intercept_cudnn.cpp intercept_cublas.cpp intercept_temp.cpp -I$(CUDAINCLUDE) -L$(CUDALIB) -lcudart -lpthread -o libinttemp.so
+	$(CC) -O3 -fPIC -shared utils_interc.cpp intercept_cudnn.cpp intercept_cublas.cpp intercept_temp.cpp -I$(CUDAINCLUDE) -L$(CUDALIB) -L$(CUDNNLIB) -lcudart -lcublas -lcudnn -lpthread -o libinttemp.so
 
 all:
 	make libinttemp.so

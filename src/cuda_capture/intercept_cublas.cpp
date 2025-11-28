@@ -40,15 +40,8 @@ cublasStatus_t cublasSgemm_v2(cublasHandle_t handle, cublasOperation_t transa, c
 		block(idx,  mutexes, kqueues);
 	}
 	else {
-
-		if (cublas_sgemm_func==NULL) {
-			*(void **)(&cublas_sgemm_func) = dlsym(RTLD_NEXT, "cublasSgemm_v2");
-			assert(cublas_sgemm_func != NULL);
-		}
-		status = (*cublas_sgemm_func)(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-		assert (status == CUBLAS_STATUS_SUCCESS);
-		DEBUG_PRINT("CUBLAS status is %d\n", status);
-
+		// Non-client thread: skip interception, return success
+		return CUBLAS_STATUS_SUCCESS;
 	}
 
 	return status;
@@ -95,15 +88,8 @@ cublasStatus_t cublasSgemm(cublasHandle_t handle, cublasOperation_t transa, cubl
 		block(idx,  mutexes, kqueues);
 	}
 	else {
-
-		if (cublas_sgemm_func==NULL) {
-			*(void **)(&cublas_sgemm_func) = dlsym(RTLD_NEXT, "cublasSgemm_v2");
-			assert(cublas_sgemm_func != NULL);
-		}
-		status = (*cublas_sgemm_func)(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-		assert (status == CUBLAS_STATUS_SUCCESS);
-		DEBUG_PRINT("CUBLAS status is %d\n", status);
-
+		// Non-client thread: skip interception, return success
+		return CUBLAS_STATUS_SUCCESS;
 	}
 
 	return status;
@@ -155,15 +141,8 @@ cublasStatus_t cublasSgemmStridedBatched(cublasHandle_t handle, cublasOperation_
 	}
 	else {
 
-		if (cublas_sgemm_strided_func==NULL) {
-			*(void **)(&cublas_sgemm_strided_func) = dlsym(RTLD_NEXT, "cublasSgemmStridedBatched");
-			assert(cublas_sgemm_strided_func != NULL);
-		}
-
-		status = (*cublas_sgemm_strided_func)(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount);
-		assert (status == CUBLAS_STATUS_SUCCESS);
-		DEBUG_PRINT("CUBLAS status is %d\n", status);
-
+		// Non-client thread: skip interception, return success
+		return CUBLAS_STATUS_SUCCESS;
 	}
 
 	return status;

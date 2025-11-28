@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 //#include <cublas.h>
 #include <dlfcn.h>
 #include <queue>
