@@ -123,7 +123,7 @@ class CharGPT(nn.Module):
         return logits
 
 
-def gpt_profile(batchsize, local_rank=0, do_eval=True, profile=None):
+def gpt_profile(batchsize, local_rank=0, do_eval=True, profile=None, warmup_iters=10, num_profile_iters=1, seq_len=512):
     """
     GPT model profiling function.
     
@@ -132,8 +132,13 @@ def gpt_profile(batchsize, local_rank=0, do_eval=True, profile=None):
         local_rank: GPU device id
         do_eval: True for inference, False for training
         profile: 'ncu' for NCU profiling, 'nsys' for NSYS profiling, None for no profiling
+        warmup_iters: number of warmup iterations
+        num_profile_iters: number of profiled iterations
+        seq_len: sequence length
     """
-    print(f"GPT Profiling: batchsize={batchsize}, device={local_rank}, eval={do_eval}, profile={profile}")
+    global sequence_len
+    sequence_len = seq_len
+    print(f"GPT Profiling: batchsize={batchsize}, device={local_rank}, eval={do_eval}, profile={profile}, warmup={warmup_iters}, iters={num_profile_iters}, seq_len={seq_len}")
     
     device = f'cuda:{local_rank}'
     vocab_size = 256
@@ -149,10 +154,9 @@ def gpt_profile(batchsize, local_rank=0, do_eval=True, profile=None):
     # Create dummy input
     dummy_input = torch.randint(0, vocab_size, (batchsize, sequence_len), device=device)
     
-    print("Starting warmup iterations...")
+    print(f"Starting {warmup_iters} warmup iterations...")
     
     # Warmup iterations
-    warmup_iters = 10
     for i in range(warmup_iters):
         if do_eval:
             with torch.no_grad():
@@ -161,10 +165,9 @@ def gpt_profile(batchsize, local_rank=0, do_eval=True, profile=None):
             _ = model(dummy_input)
         torch.cuda.synchronize()
     
-    print(f"Warmup done. Starting profiled iteration...")
+    print(f"Warmup done. Starting {num_profile_iters} profiled iteration(s)...")
     
     batch_idx = 0
-    num_profile_iters = 1
     
     while batch_idx < num_profile_iters:
         # Start profiling at first iteration
@@ -205,6 +208,9 @@ if __name__ == "__main__":
                         help='Profiling mode: ncu, nsys, or none')
     parser.add_argument('--device', type=int, default=0, help='GPU device id')
     parser.add_argument('--train', action='store_true', help='Run in training mode instead of eval')
+    parser.add_argument('--warmup', type=int, default=10, help='Number of warmup iterations')
+    parser.add_argument('--iters', type=int, default=1, help='Number of profiled iterations')
+    parser.add_argument('--seq_len', type=int, default=512, help='Sequence length')
     
     args = parser.parse_args()
     
@@ -213,5 +219,8 @@ if __name__ == "__main__":
         batchsize=args.batchsize,
         local_rank=args.device,
         do_eval=not args.train,
-        profile=profile_mode
+        profile=profile_mode,
+        warmup_iters=args.warmup,
+        num_profile_iters=args.iters,
+        seq_len=args.seq_len
     )

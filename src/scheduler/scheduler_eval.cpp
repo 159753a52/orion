@@ -314,11 +314,14 @@ void* Scheduler::busy_wait_profile(int num_clients, int iter, bool warmup, int w
 					printf("Client %d timed out after %ld ms idle (seen %d kernels, expected %d)\n", 
 						   i, idle_ms, seen[i], num_client_kernels[i]);
 					client_timed_out[i] = true;
-					// Unblock client by setting all pending request_status to true
-					for (int iter = 0; iter < num_client_max_iters[i]; iter++) {
-						request_status[i][iter] = true;
+					// Only set stop signal in non-warmup mode
+					if (!warmup) {
+						// Unblock client by setting all pending request_status to true
+						for (int iter = 0; iter < num_client_max_iters[i]; iter++) {
+							request_status[i][iter] = true;
+						}
+						stops[i] = true;  // Signal client to stop
 					}
-					stops[i] = true;  // Signal client to stop
 				}
 			}
 			pthread_mutex_unlock(client_mutexes[i]);

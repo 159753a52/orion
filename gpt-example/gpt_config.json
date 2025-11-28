@@ -1,9 +1,9 @@
 [
     {
         "arch": "gpt",
-        "kernel_file": "/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info.csv",
-        "num_kernels": 2034,
-        "num_iters": 10,
+        "kernel_file": "/lihongliang/fangzl/orion-work/orion_gpt/gpt-example/profiling_results/gpt_kernel_info_v4.csv",
+        "num_kernels": 1806,
+        "num_iters": 5,
         "args": {
             "model_name": "gpt",
             "batchsize": 4,

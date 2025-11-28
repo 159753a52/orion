@@ -139,20 +139,39 @@ All threads completed!
 - 更新CUDA路径为12.4.1
 - 添加cudnn和cublas库链接
 
-## 6. 已知问题
+## 6. Kernel数量对齐
 
-1. **Kernel数量不匹配**: 预期2034个kernel，实际捕获1806个
-   - 可能原因: profiling和实际运行时代码路径不同
-   - 解决方案: 500ms超时后自动结束
+### 问题分析
+- 原始NSYS profile得到2929个GPU事件（包括memcpy）
+- 非memcpy kernel: 1843个
+- 实际拦截到的kernel: 1806个
 
-2. **Core dump文件**: 调试过程中生成的core文件可以删除
-   ```bash
-   rm -f gpt-example/core.*
-   ```
+### 解决方案
+1. 重新用NSYS profiling获取单次迭代的kernel trace
+2. 过滤掉memcpy事件（Orion拦截库不计入memcpy）
+3. 取前1806个kernel作为profile文件
 
-## 7. Git版本
+### Profile文件说明
+| 文件 | 说明 |
+|------|------|
+| gpt_kernel_info.csv | 原始2034 kernel (包含memcpy) |
+| gpt_kernel_info_v3.csv | 1843 kernel (不含memcpy) |
+| gpt_kernel_info_v4.csv | 1806 kernel (对齐实际拦截数量) |
 
-当前可用版本commit: `a15abc8`
+### 当前配置
+- kernel_file: gpt_kernel_info_v4.csv
+- num_kernels: 1806
+
+## 7. Core dump文件
+
+调试过程中生成的core文件可以删除：
+```bash
+rm -f gpt-example/core.*
+```
+
+## 8. Git版本
+
+初始版本commit: `a15abc8`
 
 回滚命令:
 ```bash
